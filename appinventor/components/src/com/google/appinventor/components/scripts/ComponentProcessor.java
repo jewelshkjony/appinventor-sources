@@ -108,6 +108,8 @@ import javax.tools.Diagnostic.Kind;
 import javax.tools.FileObject;
 import javax.tools.StandardLocation;
 
+import static com.google.appinventor.components.common.ComponentDescriptorConstants.X86_SUFFIX;
+
 /**
  * Processor for generating output files based on the annotations and
  * javadoc in the component source code.
@@ -1710,7 +1712,9 @@ public abstract class ComponentProcessor extends AbstractProcessor {
       for (String x8664Library : usesNativeLibraries.x86_64Libraries().split(",")) {
         updateWithNonEmptyValue(componentInfo.nativeLibraries, x8664Library.trim() + X86_64_SUFFIX);
       }
-
+      for (String x86Library : usesNativeLibraries.x86_Libraries().split(",")) {
+        updateWithNonEmptyValue(componentInfo.nativeLibraries, x86Library + X86_SUFFIX);
+      }
     }
 
     // Gather required files.

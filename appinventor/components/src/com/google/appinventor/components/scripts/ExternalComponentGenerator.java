@@ -155,7 +155,7 @@ public class ExternalComponentGenerator {
   }
 
 
-  private static void generateExternalComponentBuildFiles(String packageName, List<ExternalComponentInfo> extensions) throws IOException {
+  private static void generateExternalComponentBuildFiles(String packageName, List<ExternalComponentInfo> extensions) throws IOException, JSONException {
     String extensionTempDirPath = externalComponentsTempDirPath + File.separator + packageName;
     copyRelatedExternalClasses(androidRuntimeClassDirPath, androidRuntimeClassDirPath, packageName,
         extensionTempDirPath);
@@ -167,16 +167,21 @@ public class ExternalComponentGenerator {
     JSONArray buildInfos = new JSONArray();
     for (ExternalComponentInfo info : extensions) {
       JSONObject componentBuildInfo = info.buildInfo;
+      copyNatives(packageName, info.buildInfo);
+
       try {
         JSONArray librariesNeeded = componentBuildInfo.getJSONArray("libraries");
         JSONArray librariesAar = new JSONArray();
+        boolean ensureFreshDir = true;
+
         for (int j = 0; j < librariesNeeded.length(); ++j) {
           // Copy Library files for Unjar and Jaring
           String library = librariesNeeded.getString(j);
           copyFile(buildServerClassDirPath + File.separator + library,
               extensionTempDirPath + File.separator + library);
           if (library.endsWith(".aar")) {
-            copyExternalAar(library, packageName);
+            copyExternalAar(library, packageName, ensureFreshDir);
+            ensureFreshDir = false;
             librariesAar.put(library);
           }
         }
@@ -217,6 +222,78 @@ public class ExternalComponentGenerator {
     } finally {
       if (extensionBuildInfoFile != null) {
         extensionBuildInfoFile.close();
+      }
+    }
+  }
+
+  private static void copyNatives(String packageName, JSONObject componentDescriptor)
+          throws IOException, JSONException {
+    JSONArray assets = componentDescriptor.optJSONArray("native");
+    System.out.println(assets);
+    if (assets == null) {
+      return;
+    }
+
+    // Get natives source directory
+    File sourceDir = new File(buildServerClassDirPath + File.separator);
+    if (!sourceDir.exists()) {
+      return;
+    }
+
+    // Get natives dest directory
+    File destDir = new File(externalComponentsDirPath + File.separator + packageName + File.separator);
+    File assetDestDir =  new File(destDir, "jni");
+    ensureFreshDirectory(assetDestDir.getPath(), "Unable to delete the assets directory for the extension.");
+
+    // Copy natives
+    for (int i = 0; i < assets.length(); i++) {
+      String lib = assets.getString(i);
+
+      String ARMEABI_V7A_SUFFIX = "-v7a";
+      String ARM64_V8A_SUFFIX = "-v8a";
+      String X86_64_SUFFIX = "-x8a";
+      String X86_SUFFIX = "-x8";
+
+      String ARMEABI_DIR_NAME = "armeabi";
+      String ARMEABI_V7A_DIR_NAME = "armeabi-v7a";
+      String ARM64_V8A_DIR_NAME = "arm64-v8a";
+      String X86_64_DIR_NAME = "x86_64";
+      String X86_DIR_NAME = "x86";
+
+      boolean isV7a = lib.endsWith(ARMEABI_V7A_SUFFIX);
+      boolean isV8a = lib.endsWith(ARM64_V8A_SUFFIX);
+      boolean isx8664 = lib.endsWith(X86_64_SUFFIX);
+      boolean isx86 = lib.endsWith(X86_SUFFIX);
+
+      String sourceDirName;
+      if (isV7a) {
+        sourceDirName = ARMEABI_V7A_DIR_NAME;
+        lib = lib.substring(0, lib.length() - ARMEABI_V7A_SUFFIX.length());
+      } else if (isV8a) {
+        sourceDirName = ARM64_V8A_DIR_NAME;
+        lib = lib.substring(0, lib.length() - ARM64_V8A_SUFFIX.length());
+      } else if (isx8664) {
+        sourceDirName = X86_64_DIR_NAME;
+        lib = lib.substring(0, lib.length() - X86_64_SUFFIX.length());
+      } else if (isx86) {
+        sourceDirName = X86_DIR_NAME;
+        lib = lib.substring(0, lib.length() - X86_SUFFIX.length());
+      } else {
+        sourceDirName = ARMEABI_DIR_NAME;
+      }
+
+      if (!lib.isEmpty()) {
+        File nativeAssets = new File(sourceDir, sourceDirName);
+        File srcNative = new File(nativeAssets, lib);
+        if (srcNative.exists()) {
+          File nativeAssetsDest = new File(assetDestDir, sourceDirName);
+          File srcNativeDest = new File(nativeAssetsDest, lib);
+          ensureDirectory(srcNativeDest.getParent(), "Unable to create directory " + srcNativeDest.getParent());
+          System.out.println("Extensions : " + "Copying file native " + nativeAssets.getAbsolutePath());
+          copyFile(srcNative.getAbsolutePath(), srcNativeDest.getAbsolutePath());
+        } else {
+          System.out.println("Extensions : Skipping missing native " + lib);
+        }
       }
     }
   }
@@ -349,7 +426,7 @@ public class ExternalComponentGenerator {
     return true;
   }
 
-  private static void copyExternalAar(String library, String packageName)
+  private static void copyExternalAar(String library, String packageName, boolean ensureFreshDir)
       throws IOException {
     File sourceDir = new File(buildServerClassDirPath + File.separator);
     File aarFile = new File(sourceDir, library);
@@ -359,7 +436,9 @@ public class ExternalComponentGenerator {
     // Get aar dest directory
     File destDir = new File(externalComponentsDirPath + File.separator + packageName + File.separator);
     File aarDestDir = new File(destDir, "aars");
-    ensureFreshDirectory(aarDestDir.getPath(), "Unable to delete the aars directory for the extension.");
+    if (ensureFreshDir) {
+      ensureFreshDirectory(aarDestDir.getPath(), "Unable to delete the aars directory for the extension.");
+    }
 
     System.out.println("Extensions : " + "Copying file aar " + library);
     copyFile(aarFile.getAbsolutePath(), aarDestDir.getAbsolutePath() + File.separator + library);

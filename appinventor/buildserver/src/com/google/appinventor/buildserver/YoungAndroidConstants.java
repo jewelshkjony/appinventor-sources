@@ -24,8 +24,10 @@ public class YoungAndroidConstants {
   public static final String EXT_COMPS_DIR_NAME = "external_comps";
 
   public static final String LIBS_DIR_NAME = "libs";
+  public static final String NATIVE_DIR_NAME = "jni";
   public static final String ARMEABI_DIR_NAME = "armeabi";
   public static final String ARMEABI_V7A_DIR_NAME = "armeabi-v7a";
   public static final String ARM64_V8A_DIR_NAME = "arm64-v8a";
   public static final String X86_64_DIR_NAME = "x86_64";
+  public static final String X86_DIR_NAME = "x86";
 }

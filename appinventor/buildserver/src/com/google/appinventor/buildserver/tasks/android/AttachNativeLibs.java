@@ -6,9 +6,9 @@
 package com.google.appinventor.buildserver.tasks.android;
 
 import static com.google.appinventor.buildserver.YoungAndroidConstants.EXT_COMPS_DIR_NAME;
-import static com.google.appinventor.components.common.ComponentDescriptorConstants.ARM64_V8A_SUFFIX;
-import static com.google.appinventor.components.common.ComponentDescriptorConstants.ARMEABI_V7A_SUFFIX;
-import static com.google.appinventor.components.common.ComponentDescriptorConstants.X86_64_SUFFIX;
+import static com.google.appinventor.buildserver.YoungAndroidConstants.NATIVE_DIR_NAME;
+import static com.google.appinventor.buildserver.context.Resources.RUNTIME_FILES_DIR;
+import static com.google.appinventor.components.common.ComponentDescriptorConstants.*;
 
 import com.google.appinventor.buildserver.BuildType;
 import com.google.appinventor.buildserver.TaskResult;
@@ -43,6 +43,8 @@ public class AttachNativeLibs implements AndroidTask {
         YoungAndroidConstants.ARM64_V8A_DIR_NAME);
     File x8664Dir = ExecutorUtils.createDir(paths.getLibsDir(),
         YoungAndroidConstants.X86_64_DIR_NAME);
+    File x86Dir = ExecutorUtils.createDir(paths.getLibsDir(),
+            YoungAndroidConstants.X86_DIR_NAME);
 
     try {
       for (String type : context.getComponentInfo().getNativeLibsNeeded().keySet()) {
@@ -50,6 +52,7 @@ public class AttachNativeLibs implements AndroidTask {
           boolean isV7a = lib.endsWith(ARMEABI_V7A_SUFFIX);
           boolean isV8a = lib.endsWith(ARM64_V8A_SUFFIX);
           boolean isx8664 = lib.endsWith(X86_64_SUFFIX);
+          boolean isx86 = lib.endsWith(X86_SUFFIX);
 
           String sourceDirName;
           File targetDir;
@@ -65,22 +68,26 @@ public class AttachNativeLibs implements AndroidTask {
             sourceDirName = YoungAndroidConstants.X86_64_DIR_NAME;
             targetDir = x8664Dir;
             lib = lib.substring(0, lib.length() - X86_64_SUFFIX.length());
+          } else if (isx86) {
+            sourceDirName = YoungAndroidConstants.X86_DIR_NAME;
+            targetDir = x86Dir;
+            lib = lib.substring(0, lib.length() - X86_SUFFIX.length());
           } else {
             sourceDirName = YoungAndroidConstants.ARMEABI_DIR_NAME;
             targetDir = armeabiDir;
           }
 
-          String sourcePath;
-          String pathSuffix = context.getResources().getRuntimeFilesDir() + sourceDirName
-              + "/" + lib;  // Java resource lookups always use "/"
+          final String ZIPSLASH = "/";
+          String sourcePath = "";
 
           if (context.getSimpleCompTypes().contains(type)) {
+            final String pathSuffix = RUNTIME_FILES_DIR + sourceDirName + ZIPSLASH + lib;
             sourcePath = context.getResource(pathSuffix);
           } else if (context.getExt().contains(type)) {
+            final String pathSuffix = ZIPSLASH + NATIVE_DIR_NAME + ZIPSLASH + sourceDirName + ZIPSLASH + lib;
             sourcePath = ExecutorUtils.getExtCompDirPath(type, context.getProject(),
                 context.getExtTypePathCache()) + pathSuffix;
             targetDir = ExecutorUtils.createDir(targetDir, EXT_COMPS_DIR_NAME);
-            targetDir = ExecutorUtils.createDir(targetDir, type);
           } else {
             context.getReporter().error(
                 "There was an unexpected error while processing native code", true);
